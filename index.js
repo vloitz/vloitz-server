@@ -3,59 +3,57 @@ const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
-// Configurar Multer para guardar temporalmente en 'uploads/'
 const upload = multer({ dest: 'uploads/' });
 
-app.use(cors()); // Importante para que tu web no sea bloqueada
+app.use(cors());
 
-// Ruta de prueba para saber si el servidor vive
-app.get('/', (req, res) => {
-    res.send('Servidor Vloitz Converter: ACTIVO 🟢');
-});
+app.get('/', (req, res) => res.send('Vloitz Server V68: Mixer Active 🎛️'));
 
-app.post('/convert', upload.single('video'), (req, res) => {
-    if (!req.file) return res.status(400).send('No se subió video');
+// NUEVO ENDPOINT: Recibe video y audio por separado
+const cpUpload = upload.fields([{ name: 'video', maxCount: 1 }, { name: 'audio', maxCount: 1 }]);
 
-    const inputPath = req.file.path;
-    const outputPath = `uploads/${req.file.filename}_fixed.mp4`;
+app.post('/merge', cpUpload, (req, res) => {
+    if (!req.files['video'] || !req.files['audio']) {
+        return res.status(400).send('Faltan archivos (video o audio)');
+    }
 
-    console.log(`[PROCESANDO] Recibido: ${req.file.originalname} -> ${req.file.filename}`);
+    const videoPath = req.files['video'][0].path;
+    const audioPath = req.files['audio'][0].path;
+    const outputPath = `uploads/${Date.now()}_final.mp4`;
 
-    ffmpeg(inputPath)
+    console.log("🎛️ Mezclando Streams...");
+
+    ffmpeg()
+        .input(videoPath)
+        .input(audioPath)
         .outputOptions([
-            '-c:v libx264',       // <--- CAMBIO: Re-codificar a H.264 (Estándar WhatsApp)
-            '-preset ultrafast',  // <--- CAMBIO: Para que sea rápido en el servidor
-            '-c:a aac',           // AUDIO: Convertir a AAC
+            '-c:v copy',          // VIDEO: Copia directa (Calidad Original Intacta)
+            '-c:a aac',           // AUDIO: Convertir a AAC (WhatsApp)
             '-b:a 128k',
+            '-map 0:v:0',         // Tomar video del archivo 0
+            '-map 1:a:0',         // Tomar audio del archivo 1
+            '-shortest',          // Cortar al terminar el más corto (Sincronización)
             '-movflags +faststart'
         ])
-        /*.outputOptions([
-            '-c:v copy',          // VIDEO: Solo copiar (Ultra rápido, 0 pérdida)
-            '-c:a aac',           // AUDIO: Convertir Opus a AAC (Compatible Apple/WhatsApp)
-            '-b:a 128k',          // Calidad de audio estándar
-            '-movflags +faststart' // Optimizado para streaming web
-        ])*/
         .save(outputPath)
         .on('end', () => {
-            console.log("✅ Conversión exitosa. Enviando al cliente...");
-            res.download(outputPath, 'story_fixed.mp4', (err) => {
-                // Limpieza: Borrar archivos temporales del servidor
+            console.log("✅ Mezcla terminada.");
+            res.download(outputPath, 'story.mp4', (err) => {
                 try {
-                    fs.unlinkSync(inputPath);
+                    fs.unlinkSync(videoPath);
+                    fs.unlinkSync(audioPath);
                     if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                    console.log("🧹 Archivos temporales limpiados.");
-                } catch(e) { console.error("Error limpiando:", e); }
+                } catch(e) {}
             });
         })
         .on('error', (err) => {
-            console.error("❌ Error FFmpeg:", err);
-            res.status(500).send('Error en conversión');
-            try { fs.unlinkSync(inputPath); } catch(e){}
+            console.error("❌ Error Mezcla:", err);
+            res.status(500).send('Error mezclando');
+            try { fs.unlinkSync(videoPath); fs.unlinkSync(audioPath); } catch(e){}
         });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor listo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server V68 en puerto ${PORT}`));
