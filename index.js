@@ -26,11 +26,18 @@ app.post('/convert', upload.single('video'), (req, res) => {
 
     ffmpeg(inputPath)
         .outputOptions([
+            '-c:v libx264',       // <--- CAMBIO: Re-codificar a H.264 (Estándar WhatsApp)
+            '-preset ultrafast',  // <--- CAMBIO: Para que sea rápido en el servidor
+            '-c:a aac',           // AUDIO: Convertir a AAC
+            '-b:a 128k',
+            '-movflags +faststart'
+        ])
+        /*.outputOptions([
             '-c:v copy',          // VIDEO: Solo copiar (Ultra rápido, 0 pérdida)
             '-c:a aac',           // AUDIO: Convertir Opus a AAC (Compatible Apple/WhatsApp)
             '-b:a 128k',          // Calidad de audio estándar
             '-movflags +faststart' // Optimizado para streaming web
-        ])
+        ])*/
         .save(outputPath)
         .on('end', () => {
             console.log("✅ Conversión exitosa. Enviando al cliente...");
