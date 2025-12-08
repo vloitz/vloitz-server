@@ -7,7 +7,12 @@ const cors = require('cors');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.use(cors());
+// CONFIGURACIÓN DE SEGURIDAD (CORS)
+// Solo permite peticiones desde tu dominio oficial
+app.use(cors({
+    origin: 'https://vloitz.github.io',
+    optionsSuccessStatus: 200
+}));
 
 app.get('/', (req, res) => res.send('Vloitz Server V71: Mixer Ready 🎛️'));
 
