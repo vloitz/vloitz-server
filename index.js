@@ -3,24 +3,39 @@ const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit'); // <--- NUEVA LIBRERÍA
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-// CONFIGURACIÓN DE SEGURIDAD (CORS)
-// Solo permite peticiones desde tu dominio oficial
+// 1. SEGURIDAD: CORS (Solo tu web entra)
 app.use(cors({
     origin: 'https://vloitz.github.io',
     optionsSuccessStatus: 200
 }));
 
-app.get('/', (req, res) => res.send('Vloitz Server V71: Mixer Ready 🎛️'));
+// 2. SEGURIDAD: RATE LIMITER (Escudo Anti-Abuso)
+// Render está detrás de un proxy, necesitamos esto para leer la IP real
+app.set('trust proxy', 1);
+
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutos
+	max: 20, // Límite: 20 peticiones por IP cada 15 min
+    standardHeaders: true,
+	legacyHeaders: false,
+	message: "⛔ Demasiadas solicitudes. Calma, espera 15 minutos."
+});
+
+// Aplicar el escudo a todas las rutas
+app.use(limiter);
+
+app.get('/', (req, res) => res.send('Vloitz Server V72: Protected (CORS + RateLimit) 🛡️'));
 
 // CONFIGURACIÓN PARA RECIBIR 2 ARCHIVOS
 const cpUpload = upload.fields([{ name: 'video', maxCount: 1 }, { name: 'audio', maxCount: 1 }]);
 
 app.post('/merge', cpUpload, (req, res) => {
-    // Validación estricta: ¿Llegaron los dos?
+    // Validación estricta
     if (!req.files || !req.files['video'] || !req.files['audio']) {
         return res.status(400).send('Faltan archivos (se requiere video y audio)');
     }
@@ -63,4 +78,4 @@ app.post('/merge', cpUpload, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server V71 activo en ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server Blindado listo en ${PORT}`));
