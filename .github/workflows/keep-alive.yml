@@ -1,0 +1,13 @@
+name: Ping Vloitz Server
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar Servidor Render
+        run: curl -s https://vloitz-server.onrender.com/
